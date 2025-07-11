@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Test, Offer, FinancialData, Transaction, AIInsight } from '../types';
+import { Test, Offer, FinancialData, Transaction, AIInsight, Workspace, WorkspaceMember, MemberInvitation, MemberPermissions } from '../types';
 
 // Offers Service
 export const offersService = {
@@ -377,5 +377,190 @@ export const aiInsightsService = {
       console.error('Error generating AI insight:', error);
       throw error;
     }
+  }
+};
+
+// Workspace Service
+export const workspaceService = {
+  async getCurrentWorkspace() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('workspaces')
+      .select('*')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      ownerId: data.owner_id,
+      name: data.name,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    } as Workspace;
+  },
+
+  async getMembers() {
+    const workspace = await this.getCurrentWorkspace();
+    
+    const { data, error } = await supabase
+      .from('workspace_members')
+      .select('*')
+      .eq('workspace_id', workspace.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return (data || []).map(member => ({
+      id: member.id,
+      workspaceId: member.workspace_id,
+      userId: member.user_id,
+      email: member.email,
+      role: member.role,
+      permissions: member.permissions,
+      invitedBy: member.invited_by,
+      joinedAt: member.joined_at,
+      createdAt: member.created_at
+    })) as WorkspaceMember[];
+  },
+
+  async inviteMember(email: string, permissions: MemberPermissions) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const workspace = await this.getCurrentWorkspace();
+
+    const { data, error } = await supabase
+      .from('member_invitations')
+      .insert({
+        workspace_id: workspace.id,
+        email,
+        permissions,
+        invited_by: user.id
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      workspaceId: data.workspace_id,
+      email: data.email,
+      permissions: data.permissions,
+      invitedBy: data.invited_by,
+      token: data.token,
+      expiresAt: data.expires_at,
+      createdAt: data.created_at
+    } as MemberInvitation;
+  },
+
+  async getPendingInvitations() {
+    const workspace = await this.getCurrentWorkspace();
+    
+    const { data, error } = await supabase
+      .from('member_invitations')
+      .select('*')
+      .eq('workspace_id', workspace.id)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return (data || []).map(invitation => ({
+      id: invitation.id,
+      workspaceId: invitation.workspace_id,
+      email: invitation.email,
+      permissions: invitation.permissions,
+      invitedBy: invitation.invited_by,
+      token: invitation.token,
+      expiresAt: invitation.expires_at,
+      createdAt: invitation.created_at
+    })) as MemberInvitation[];
+  },
+
+  async removeMember(memberId: string) {
+    const { error } = await supabase
+      .from('workspace_members')
+      .delete()
+      .eq('id', memberId);
+
+    if (error) throw error;
+  },
+
+  async updateMemberPermissions(memberId: string, permissions: MemberPermissions) {
+    const { data, error } = await supabase
+      .from('workspace_members')
+      .update({ permissions })
+      .eq('id', memberId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      workspaceId: data.workspace_id,
+      userId: data.user_id,
+      email: data.email,
+      role: data.role,
+      permissions: data.permissions,
+      invitedBy: data.invited_by,
+      joinedAt: data.joined_at,
+      createdAt: data.created_at
+    } as WorkspaceMember;
+  },
+
+  async revokeInvitation(invitationId: string) {
+    const { error } = await supabase
+      .from('member_invitations')
+      .delete()
+      .eq('id', invitationId);
+
+    if (error) throw error;
+  },
+
+  async acceptInvitation(token: string) {
+    const { data, error } = await supabase.rpc('accept_invitation', {
+      invitation_token: token
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getUserPermissions() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Check if user is workspace owner
+    const { data: workspace } = await supabase
+      .from('workspaces')
+      .select('*')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (workspace) {
+      return {
+        isOwner: true,
+        permissions: { full_access: true }
+      };
+    }
+
+    // Check if user is a member
+    const { data: member } = await supabase
+      .from('workspace_members')
+      .select('permissions')
+      .eq('user_id', user.id)
+      .single();
+
+    return {
+      isOwner: false,
+      permissions: member?.permissions || { view_only: true }
+    };
   }
 };

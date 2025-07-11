@@ -73,3 +73,44 @@ export interface AIInsight {
   recommendations: string[];
   createdAt: string;
 }
+
+export interface Workspace {
+  id: string;
+  ownerId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  email: string;
+  role: 'owner' | 'member';
+  permissions: MemberPermissions;
+  invitedBy?: string;
+  joinedAt: string;
+  createdAt: string;
+}
+
+export interface MemberPermissions {
+  view_only?: boolean;
+  edit_tests?: boolean;
+  edit_offers?: boolean;
+  edit_financial?: boolean;
+  manage_members?: boolean;
+  full_access?: boolean;
+}
+
+export interface MemberInvitation {
+  id: string;
+  workspaceId: string;
+  email: string;
+  permissions: MemberPermissions;
+  invitedBy: string;
+  token: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+}

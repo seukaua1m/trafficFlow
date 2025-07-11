@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Target, DollarSign, Menu, X, Package, LogOut } from 'lucide-react';
+import { Routes, Route } from 'react-router-dom';
+import { BarChart3, Target, DollarSign, Menu, X, Package, LogOut, Users } from 'lucide-react';
 import { Test, FinancialData, Transaction, Offer } from './types';
 import { calculateMetrics } from './utils/calculations';
 import { signOut } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
+import { usePermissions } from './hooks/usePermissions';
 import { offersService, testsService, financialService } from './services/supabaseService';
 import Dashboard from './components/Dashboard';
 import TestModule from './components/TestModule';
 import FinancialModule from './components/FinancialModule';
 import OfferModule from './components/OfferModule';
+import MemberManagement from './components/MemberManagement';
+import InviteAccept from './components/InviteAccept';
 import LoginForm from './components/Auth/LoginForm';
 
-type ActiveModule = 'dashboard' | 'tests' | 'financial' | 'offers';
+type ActiveModule = 'dashboard' | 'tests' | 'financial' | 'offers' | 'members';
 
 function App() {
   const { user, loading: authLoading } = useAuth();
+  const { permissions, isOwner, loading: permissionsLoading, canEdit } = usePermissions();
   const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tests, setTests] = useState<Test[]>([]);
@@ -191,11 +196,12 @@ function App() {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'tests', label: 'Testes', icon: Target },
     { id: 'offers', label: 'Ofertas', icon: Package },
-    { id: 'financial', label: 'Financeiro', icon: DollarSign }
+    { id: 'financial', label: 'Financeiro', icon: DollarSign },
+    { id: 'members', label: 'Membros', icon: Users }
   ];
 
   const renderActiveModule = () => {
-    if (loading) {
+    if (loading || permissionsLoading) {
       return (
         <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -212,12 +218,14 @@ function App() {
         return <OfferModule offers={offers} tests={tests} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
       case 'financial':
         return <FinancialModule financial={financial} onUpdateFinancial={handleUpdateFinancial} />;
+      case 'members':
+        return <MemberManagement canManageMembers={canEdit('members')} />;
       default:
         return <Dashboard tests={tests} metrics={metrics} />;
     }
   };
 
-  if (authLoading) {
+  if (authLoading || permissionsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -227,6 +235,231 @@ function App() {
 
   if (!user) {
     return <LoginForm onSuccess={() => {}} />;
+  }
+
+  // Handle invite routes
+  return (
+    <Routes>
+      <Route path="/invite/:token" element={<InviteAccept />} />
+      <Route path="/*" element={<MainApp />} />
+    </Routes>
+  );
+}
+
+const MainApp: React.FC = () => {
+  const { user } = useAuth();
+  const { permissions, isOwner, loading: permissionsLoading, canEdit } = usePermissions();
+  const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tests, setTests] = useState<Test[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [financial, setFinancial] = useState<FinancialData>({
+    initialCapital: 0,
+    currentBalance: 0,
+    totalInvestment: 0,
+    totalRevenue: 0,
+    netProfit: 0,
+    transactions: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Load data when user is authenticated
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [testsData, offersData, financialData] = await Promise.all([
+        testsService.getAll(),
+        offersService.getAll(),
+        financialService.get()
+      ]);
+      
+      setTests(testsData);
+      setOffers(offersData);
+      setFinancial(financialData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update financial data when tests change
+  useEffect(() => {
+    if (tests.length > 0) {
+      const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
+      const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
+      const netProfit = totalRevenue - totalInvestment;
+      
+      const updatedFinancial = {
+        ...financial,
+        totalInvestment,
+        totalRevenue,
+        netProfit,
+        currentBalance: financial.initialCapital + totalRevenue - totalInvestment
+      };
+      
+      setFinancial(updatedFinancial);
+      
+      // Update in database
+      financialService.update(updatedFinancial).catch(console.error);
+    }
+  }, [tests]);
+
+  const handleAddTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
+    try {
+      const newTest = await testsService.create(testData);
+      setTests(prev => [newTest, ...prev]);
+      
+      // Add investment transaction
+      const investmentTransaction: Omit<Transaction, 'id'> = {
+        type: 'investment',
+        amount: testData.investedAmount,
+        description: `Investimento - ${testData.productName}`,
+        date: new Date().toISOString(),
+        testId: newTest.id
+      };
+      
+      await financialService.addTransaction(investmentTransaction);
+      
+      // Add revenue transaction if there's return value
+      if (testData.returnValue > 0) {
+        const revenueTransaction: Omit<Transaction, 'id'> = {
+          type: 'revenue',
+          amount: testData.returnValue,
+          description: `Receita - ${testData.productName}`,
+          date: new Date().toISOString(),
+          testId: newTest.id
+        };
+        
+        await financialService.addTransaction(revenueTransaction);
+      }
+      
+      // Reload financial data
+      const updatedFinancial = await financialService.get();
+      setFinancial(updatedFinancial);
+    } catch (error) {
+      console.error('Error adding test:', error);
+    }
+  };
+
+  const handleAddOffer = async (offerData: Omit<Offer, 'id' | 'createdAt'>) => {
+    try {
+      const newOffer = await offersService.create(offerData);
+      setOffers(prev => [newOffer, ...prev]);
+    } catch (error) {
+      console.error('Error adding offer:', error);
+    }
+  };
+
+  const handleUpdateOffer = async (offerId: string, offerData: Partial<Omit<Offer, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedOffer = await offersService.update(offerId, offerData);
+      setOffers(prev => prev.map(offer => offer.id === offerId ? updatedOffer : offer));
+    } catch (error) {
+      console.error('Error updating offer:', error);
+    }
+  };
+
+  const handleDeleteOffer = async (offerId: string) => {
+    try {
+      await offersService.delete(offerId);
+      setOffers(prev => prev.filter(offer => offer.id !== offerId));
+    } catch (error) {
+      console.error('Error deleting offer:', error);
+    }
+  };
+
+  const handleUpdateTest = async (testId: string, testData: Partial<Omit<Test, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedTest = await testsService.update(testId, testData);
+      setTests(prev => prev.map(test => test.id === testId ? updatedTest : test));
+      
+      // Reload financial data
+      const updatedFinancial = await financialService.get();
+      setFinancial(updatedFinancial);
+    } catch (error) {
+      console.error('Error updating test:', error);
+    }
+  };
+
+  const handleDeleteTest = async (testId: string) => {
+    try {
+      await testsService.delete(testId);
+      setTests(prev => prev.filter(test => test.id !== testId));
+      
+      // Reload financial data
+      const updatedFinancial = await financialService.get();
+      setFinancial(updatedFinancial);
+    } catch (error) {
+      console.error('Error deleting test:', error);
+    }
+  };
+
+  const handleUpdateFinancial = async (data: Partial<FinancialData>) => {
+    try {
+      const updatedFinancial = { ...financial, ...data };
+      setFinancial(updatedFinancial);
+      await financialService.update(updatedFinancial);
+    } catch (error) {
+      console.error('Error updating financial data:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const metrics = calculateMetrics(tests);
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'tests', label: 'Testes', icon: Target },
+    { id: 'offers', label: 'Ofertas', icon: Package },
+    { id: 'financial', label: 'Financeiro', icon: DollarSign },
+    { id: 'members', label: 'Membros', icon: Users }
+  ];
+
+  const renderActiveModule = () => {
+    if (loading || permissionsLoading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
+    switch (activeModule) {
+      case 'dashboard':
+        return <Dashboard tests={tests} metrics={metrics} />;
+      case 'tests':
+        return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
+      case 'offers':
+        return <OfferModule offers={offers} tests={tests} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
+      case 'financial':
+        return <FinancialModule financial={financial} onUpdateFinancial={handleUpdateFinancial} />;
+      case 'members':
+        return <MemberManagement canManageMembers={canEdit('members')} />;
+      default:
+        return <Dashboard tests={tests} metrics={metrics} />;
+    }
+  };
+
+  if (permissionsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (
@@ -314,6 +547,6 @@ function App() {
       )}
     </div>
   );
-}
+};
 
 export default App;

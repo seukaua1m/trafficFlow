@@ -4,6 +4,7 @@ import { FinancialData, Transaction } from '../types';
 import { formatCurrency } from '../utils/calculations';
 import { exportFinancialToCSV } from '../utils/export';
 import { parseCurrencyInput, createCurrencyInputProps } from '../utils/currency';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface FinancialModuleProps {
   financial: FinancialData;
@@ -11,6 +12,7 @@ interface FinancialModuleProps {
 }
 
 const FinancialModule: React.FC<FinancialModuleProps> = ({ financial, onUpdateFinancial }) => {
+  const { canEdit } = usePermissions();
   const [showCapitalForm, setShowCapitalForm] = useState(false);
   const [capitalAmount, setCapitalAmount] = useState('');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -95,12 +97,14 @@ const FinancialModule: React.FC<FinancialModuleProps> = ({ financial, onUpdateFi
             <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600">
               <DollarSign className="w-6 h-6 text-white" />
             </div>
-            <button
-              onClick={() => setShowCapitalForm(true)}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              Atualizar
-            </button>
+            {canEdit('financial') && (
+              <button
+                onClick={() => setShowCapitalForm(true)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                Atualizar
+              </button>
+            )}
           </div>
           <h3 className="text-sm font-medium text-gray-600 mb-1">Capital Inicial</h3>
           <p className="text-2xl font-bold text-gray-900">{formatCurrency(financial.initialCapital)}</p>
@@ -153,12 +157,14 @@ const FinancialModule: React.FC<FinancialModuleProps> = ({ financial, onUpdateFi
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Fluxo de Caixa</h3>
-          <button
-            onClick={() => setShowTransactionForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Nova Transação
-          </button>
+          {canEdit('financial') && (
+            <button
+              onClick={() => setShowTransactionForm(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Nova Transação
+            </button>
+          )}
         </div>
 
         <div className="space-y-3">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Download, Search, ExternalLink, Edit, Trash2 } from 'lucide-react';
 import { Offer } from '../types';
 import { exportOffersToCSV } from '../utils/export';
+import { usePermissions } from '../hooks/usePermissions';
 import OfferForm from './OfferForm';
 
 interface OfferModuleProps {
@@ -13,6 +14,7 @@ interface OfferModuleProps {
 }
 
 const OfferModule: React.FC<OfferModuleProps> = ({ offers, tests, onAddOffer, onUpdateOffer, onDeleteOffer }) => {
+  const { canEdit } = usePermissions();
   const [showForm, setShowForm] = useState(false);
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,13 +98,15 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, tests, onAddOffer, on
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Oferta
-          </button>
+          {canEdit('offers') && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Oferta
+            </button>
+          )}
         </div>
       </div>
 
@@ -136,22 +140,24 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, tests, onAddOffer, on
                     {getStatusLabel(getOfferStatus(offer.id))}
                   </span>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEditOffer(offer)}
-                    className="text-blue-500 hover:text-blue-700 transition-colors"
-                    title="Editar"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(offer.id, offer.name)}
-                    className="text-red-500 hover:text-red-700 transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {canEdit('offers') && (
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditOffer(offer)}
+                      className="text-blue-500 hover:text-blue-700 transition-colors"
+                      title="Editar"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(offer.id, offer.name)}
+                      className="text-red-500 hover:text-red-700 transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">

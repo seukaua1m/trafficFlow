@@ -4,6 +4,7 @@ import { Test, Offer } from '../types';
 import { formatCurrency, formatPercentage } from '../utils/calculations';
 import { exportTestsToCSV } from '../utils/export';
 import { aiInsightsService } from '../services/supabaseService';
+import { usePermissions } from '../hooks/usePermissions';
 import TestForm from './TestForm';
 
 interface TestModuleProps {
@@ -15,6 +16,7 @@ interface TestModuleProps {
 }
 
 const TestModule: React.FC<TestModuleProps> = ({ tests, offers, onAddTest, onUpdateTest, onDeleteTest }) => {
+  const { canEdit } = usePermissions();
   const [showForm, setShowForm] = useState(false);
   const [editingTest, setEditingTest] = useState<Test | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,13 +85,15 @@ const TestModule: React.FC<TestModuleProps> = ({ tests, offers, onAddTest, onUpd
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Teste
-          </button>
+          {canEdit('tests') && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Teste
+            </button>
+          )}
         </div>
       </div>
 
@@ -177,20 +181,24 @@ const TestModule: React.FC<TestModuleProps> = ({ tests, offers, onAddTest, onUpd
                             <Brain className="w-4 h-4" />
                           )}
                         </button>
-                        <button
-                          onClick={() => handleEditTest(test)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
-                          title="Editar"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTest(test)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canEdit('tests') && (
+                          <>
+                            <button
+                              onClick={() => handleEditTest(test)}
+                              className="text-blue-600 hover:text-blue-800 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTest(test)}
+                              className="text-red-600 hover:text-red-800 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
