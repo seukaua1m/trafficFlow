@@ -161,7 +161,45 @@ export const financialService = {
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (createError) {
+        // Check if it's a unique constraint violation (race condition)
+        if (createError.code === '23505') {
+          // Another process created the record, try to fetch it again
+          const { data: existingData, error: fetchError } = await supabase
+            .from('financial_data')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          // Get transactions for the existing record
+          const { data: transactions, error: transError } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('date', { ascending: false });
+
+          if (transError) throw transError;
+
+          return {
+            initialCapital: existingData.initial_capital,
+            currentBalance: existingData.current_balance,
+            totalInvestment: existingData.total_investment,
+            totalRevenue: existingData.total_revenue,
+            netProfit: existingData.net_profit,
+            transactions: (transactions || []).map(t => ({
+              id: t.id,
+              type: t.type,
+              amount: t.amount,
+              description: t.description,
+              date: t.date,
+              testId: t.test_id
+            }))
+          } as FinancialData;
+        }
+        throw createError;
+      }
       
       return {
         initialCapital: newData.initial_capital,
