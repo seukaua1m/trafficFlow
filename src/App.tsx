@@ -209,7 +209,7 @@ function App() {
       case 'tests':
         return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
       case 'offers':
-        return <OfferModule offers={offers} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
+        return <OfferModule offers={offers} tests={tests} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
       case 'financial':
         return <FinancialModule financial={financial} onUpdateFinancial={handleUpdateFinancial} />;
       default:

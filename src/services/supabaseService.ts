@@ -229,6 +229,15 @@ export const testsService = {
   },
 
   async delete(id: string) {
+    // First, delete related transactions
+    const { error: transError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('test_id', id);
+
+    if (transError) throw transError;
+
+    // Then delete the test
     const { error } = await supabase
       .from('tests')
       .delete()

@@ -6,16 +6,50 @@ import OfferForm from './OfferForm';
 
 interface OfferModuleProps {
   offers: Offer[];
+  tests: Test[];
   onAddOffer: (offer: Omit<Offer, 'id' | 'createdAt'>) => void;
   onUpdateOffer: (id: string, offer: Partial<Omit<Offer, 'id' | 'createdAt'>>) => void;
   onDeleteOffer: (offerId: string) => void;
 }
 
-const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onUpdateOffer, onDeleteOffer }) => {
+const OfferModule: React.FC<OfferModuleProps> = ({ offers, tests, onAddOffer, onUpdateOffer, onDeleteOffer }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Function to get offer status based on related tests
+  const getOfferStatus = (offerId: string) => {
+    const relatedTests = tests.filter(test => test.offerId === offerId);
+    
+    if (relatedTests.length === 0) return 'inactive';
+    
+    // Check if any test has "Escalar" status
+    if (relatedTests.some(test => test.status === 'Escalar')) return 'scale';
+    
+    // Check if any test has "Pausar" status (in test)
+    if (relatedTests.some(test => test.status === 'Pausar')) return 'testing';
+    
+    // All tests are "Encerrar"
+    return 'stopped';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scale': return 'border-green-500 bg-green-50';
+      case 'testing': return 'border-yellow-500 bg-yellow-50';
+      case 'stopped': return 'border-red-500 bg-red-50';
+      default: return 'border-gray-200 bg-gray-50';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'scale': return 'Escalando';
+      case 'testing': return 'Em Teste';
+      case 'stopped': return 'Encerrado';
+      default: return 'Inativo';
+    }
+  };
   const filteredOffers = offers.filter(offer => 
     offer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     offer.niche.toLowerCase().includes(searchTerm.toLowerCase())
@@ -88,11 +122,19 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onUpdateO
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOffers.map((offer) => (
-            <div key={offer.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+            <div key={offer.id} className={`rounded-lg p-4 border-2 hover:shadow-md transition-all ${getStatusColor(getOfferStatus(offer.id))}`}>
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-semibold text-gray-900 text-lg">{offer.name}</h3>
                   <p className="text-sm text-gray-600">{offer.niche}</p>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
+                    getOfferStatus(offer.id) === 'scale' ? 'bg-green-100 text-green-800' :
+                    getOfferStatus(offer.id) === 'testing' ? 'bg-yellow-100 text-yellow-800' :
+                    getOfferStatus(offer.id) === 'stopped' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {getStatusLabel(getOfferStatus(offer.id))}
+                  </span>
                 </div>
                 <div className="flex space-x-2">
                   <button
