@@ -4,15 +4,16 @@ import { Offer } from '../types';
 interface OfferFormProps {
   onSubmit: (offer: Omit<Offer, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
+  editingOffer?: Offer;
 }
 
-const OfferForm: React.FC<OfferFormProps> = ({ onSubmit, onCancel }) => {
+const OfferForm: React.FC<OfferFormProps> = ({ onSubmit, onCancel, editingOffer }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    libraryLink: '',
-    landingPageLink: '',
-    checkoutLink: '',
-    niche: ''
+    name: editingOffer?.name || '',
+    libraryLink: editingOffer?.libraryLink || '',
+    landingPageLink: editingOffer?.landingPageLink || '',
+    checkoutLink: editingOffer?.checkoutLink || '',
+    niche: editingOffer?.niche || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,7 +29,9 @@ const OfferForm: React.FC<OfferFormProps> = ({ onSubmit, onCancel }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Nova Oferta</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          {editingOffer ? 'Editar Oferta' : 'Nova Oferta'}
+        </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,7 +123,7 @@ const OfferForm: React.FC<OfferFormProps> = ({ onSubmit, onCancel }) => {
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Salvar Oferta
+              {editingOffer ? 'Atualizar Oferta' : 'Salvar Oferta'}
             </button>
           </div>
         </form>

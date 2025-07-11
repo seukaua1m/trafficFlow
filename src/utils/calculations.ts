@@ -15,6 +15,21 @@ export const calculateCPA = (investedAmount: number, conversions: number): numbe
   return investedAmount / conversions;
 };
 
+export const calculateCTR = (clicks: number, impressions: number): number => {
+  if (impressions === 0) return 0;
+  return (clicks / impressions) * 100;
+};
+
+export const calculateConversionRate = (conversions: number, clicks: number): number => {
+  if (clicks === 0) return 0;
+  return (conversions / clicks) * 100;
+};
+
+export const calculateCPC = (investedAmount: number, clicks: number): number => {
+  if (clicks === 0) return 0;
+  return investedAmount / clicks;
+};
+
 export const calculateMetrics = (tests: Test[]): Metrics => {
   const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
   const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);

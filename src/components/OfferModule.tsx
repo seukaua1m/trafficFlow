@@ -7,11 +7,13 @@ import OfferForm from './OfferForm';
 interface OfferModuleProps {
   offers: Offer[];
   onAddOffer: (offer: Omit<Offer, 'id' | 'createdAt'>) => void;
+  onUpdateOffer: (id: string, offer: Partial<Omit<Offer, 'id' | 'createdAt'>>) => void;
   onDeleteOffer: (offerId: string) => void;
 }
 
-const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onDeleteOffer }) => {
+const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onUpdateOffer, onDeleteOffer }) => {
   const [showForm, setShowForm] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredOffers = offers.filter(offer => 
@@ -22,6 +24,20 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onDeleteO
   const handleAddOffer = (offerData: Omit<Offer, 'id' | 'createdAt'>) => {
     onAddOffer(offerData);
     setShowForm(false);
+    setEditingOffer(null);
+  };
+
+  const handleEditOffer = (offer: Offer) => {
+    setEditingOffer(offer);
+    setShowForm(true);
+  };
+
+  const handleUpdateOffer = (offerData: Omit<Offer, 'id' | 'createdAt'>) => {
+    if (editingOffer) {
+      onUpdateOffer(editingOffer.id, offerData);
+      setShowForm(false);
+      setEditingOffer(null);
+    }
   };
 
   const handleExport = () => {
@@ -78,12 +94,22 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onDeleteO
                   <h3 className="font-semibold text-gray-900 text-lg">{offer.name}</h3>
                   <p className="text-sm text-gray-600">{offer.niche}</p>
                 </div>
-                <button
-                  onClick={() => handleDelete(offer.id, offer.name)}
-                  className="text-red-500 hover:text-red-700 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEditOffer(offer)}
+                    className="text-blue-500 hover:text-blue-700 transition-colors"
+                    title="Editar"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(offer.id, offer.name)}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -144,8 +170,12 @@ const OfferModule: React.FC<OfferModuleProps> = ({ offers, onAddOffer, onDeleteO
 
       {showForm && (
         <OfferForm
-          onSubmit={handleAddOffer}
-          onCancel={() => setShowForm(false)}
+          onSubmit={editingOffer ? handleUpdateOffer : handleAddOffer}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingOffer(null);
+          }}
+          editingOffer={editingOffer || undefined}
         />
       )}
     </div>

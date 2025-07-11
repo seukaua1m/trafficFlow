@@ -1,27 +1,30 @@
 import React, { useState } from 'react';
 import { Test, Offer } from '../types';
-import { calculateROI, calculateROAS, calculateCPA } from '../utils/calculations';
+import { calculateROI, calculateROAS, calculateCPA, calculateCTR, calculateConversionRate, calculateCPC } from '../utils/calculations';
 import { parseCurrencyInput, createCurrencyInputProps } from '../utils/currency';
 
 interface TestFormProps {
   offers: Offer[];
   onSubmit: (test: Omit<Test, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
+  editingTest?: Test;
 }
 
-const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
+const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel, editingTest }) => {
   const [formData, setFormData] = useState({
-    startDate: '',
-    productName: '',
-    niche: '',
-    offerSource: '',
-    landingPageUrl: '',
-    investedAmount: '',
-    clicks: '',
-    returnValue: '',
-    status: 'Pausar' as const,
-    observations: '',
-    offerId: ''
+    startDate: editingTest?.startDate || '',
+    productName: editingTest?.productName || '',
+    niche: editingTest?.niche || '',
+    offerSource: editingTest?.offerSource || '',
+    landingPageUrl: editingTest?.landingPageUrl || '',
+    investedAmount: editingTest ? editingTest.investedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '',
+    clicks: editingTest?.clicks.toString() || '',
+    returnValue: editingTest ? editingTest.returnValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '',
+    impressions: editingTest?.impressions.toString() || '',
+    conversions: editingTest?.conversions.toString() || '',
+    status: editingTest?.status || 'Pausar' as const,
+    observations: editingTest?.observations || '',
+    offerId: editingTest?.offerId || ''
   });
 
   const handleOfferSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -54,10 +57,15 @@ const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
     const investedAmount = parseCurrencyInput(formData.investedAmount);
     const returnValue = parseCurrencyInput(formData.returnValue);
     const clicks = parseInt(formData.clicks);
+    const impressions = parseInt(formData.impressions) || 0;
+    const conversions = parseInt(formData.conversions) || 0;
     
     const roi = calculateROI(returnValue, investedAmount);
     const roas = calculateROAS(returnValue, investedAmount);
-    const cpa = calculateCPA(investedAmount, clicks);
+    const cpa = calculateCPA(investedAmount, conversions);
+    const ctr = calculateCTR(clicks, impressions);
+    const conversionRate = calculateConversionRate(conversions, clicks);
+    const cpc = calculateCPC(investedAmount, clicks);
     
     onSubmit({
       startDate: formData.startDate,
@@ -71,6 +79,11 @@ const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
       investedAmount,
       returnValue,
       clicks,
+      impressions,
+      conversions,
+      ctr,
+      conversionRate,
+      cpc,
       roi,
       roas,
       cpa
@@ -85,7 +98,9 @@ const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Novo Teste de Campanha</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          {editingTest ? 'Editar Teste de Campanha' : 'Novo Teste de Campanha'}
+        </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -197,12 +212,44 @@ const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Impressões *
+              </label>
+              <input
+                type="number"
+                name="impressions"
+                value={formData.impressions}
+                onChange={handleInputChange}
+                required
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Número de Cliques *
               </label>
               <input
                 type="number"
                 name="clicks"
                 value={formData.clicks}
+                onChange={handleInputChange}
+                required
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Conversões *
+              </label>
+              <input
+                type="number"
+                name="conversions"
+                value={formData.conversions}
                 onChange={handleInputChange}
                 required
                 min="0"
@@ -267,7 +314,7 @@ const TestForm: React.FC<TestFormProps> = ({ offers, onSubmit, onCancel }) => {
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Salvar Teste
+              {editingTest ? 'Atualizar Teste' : 'Salvar Teste'}
             </button>
           </div>
         </form>

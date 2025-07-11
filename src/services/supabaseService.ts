@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Test, Offer, FinancialData, Transaction } from '../types';
+import { Test, Offer, FinancialData, Transaction, AIInsight } from '../types';
 
 // Offers Service
 export const offersService = {
@@ -50,6 +50,33 @@ export const offersService = {
       .eq('id', id);
 
     if (error) throw error;
+  },
+
+  async update(id: string, offer: Partial<Omit<Offer, 'id' | 'createdAt'>>) {
+    const { data, error } = await supabase
+      .from('offers')
+      .update({
+        name: offer.name,
+        library_link: offer.libraryLink,
+        landing_page_link: offer.landingPageLink,
+        checkout_link: offer.checkoutLink,
+        niche: offer.niche
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      libraryLink: data.library_link,
+      landingPageLink: data.landing_page_link,
+      checkoutLink: data.checkout_link,
+      niche: data.niche,
+      createdAt: data.created_at
+    } as Offer;
   }
 };
 
@@ -76,6 +103,11 @@ export const testsService = {
       cpa: test.cpa,
       roi: test.roi,
       roas: test.roas,
+      ctr: test.ctr || 0,
+      conversionRate: test.conversion_rate || 0,
+      cpc: test.cpc || 0,
+      impressions: test.impressions || 0,
+      conversions: test.conversions || 0,
       status: test.status,
       observations: test.observations,
       createdAt: test.created_at,
@@ -103,6 +135,11 @@ export const testsService = {
         cpa: test.cpa,
         roi: test.roi,
         roas: test.roas,
+        ctr: test.ctr,
+        conversion_rate: test.conversionRate,
+        cpc: test.cpc,
+        impressions: test.impressions,
+        conversions: test.conversions,
         status: test.status,
         observations: test.observations
       })
@@ -124,11 +161,80 @@ export const testsService = {
       cpa: data.cpa,
       roi: data.roi,
       roas: data.roas,
+      ctr: data.ctr || 0,
+      conversionRate: data.conversion_rate || 0,
+      cpc: data.cpc || 0,
+      impressions: data.impressions || 0,
+      conversions: data.conversions || 0,
       status: data.status,
       observations: data.observations,
       createdAt: data.created_at,
       offerId: data.offer_id
     } as Test;
+  },
+
+  async update(id: string, test: Partial<Omit<Test, 'id' | 'createdAt'>>) {
+    const { data, error } = await supabase
+      .from('tests')
+      .update({
+        offer_id: test.offerId || null,
+        start_date: test.startDate,
+        product_name: test.productName,
+        niche: test.niche,
+        offer_source: test.offerSource,
+        landing_page_url: test.landingPageUrl,
+        invested_amount: test.investedAmount,
+        clicks: test.clicks,
+        return_value: test.returnValue,
+        cpa: test.cpa,
+        roi: test.roi,
+        roas: test.roas,
+        ctr: test.ctr,
+        conversion_rate: test.conversionRate,
+        cpc: test.cpc,
+        impressions: test.impressions,
+        conversions: test.conversions,
+        status: test.status,
+        observations: test.observations
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      startDate: data.start_date,
+      productName: data.product_name,
+      niche: data.niche,
+      offerSource: data.offer_source,
+      landingPageUrl: data.landing_page_url,
+      investedAmount: data.invested_amount,
+      clicks: data.clicks,
+      returnValue: data.return_value,
+      cpa: data.cpa,
+      roi: data.roi,
+      roas: data.roas,
+      ctr: data.ctr || 0,
+      conversionRate: data.conversion_rate || 0,
+      cpc: data.cpc || 0,
+      impressions: data.impressions || 0,
+      conversions: data.conversions || 0,
+      status: data.status,
+      observations: data.observations,
+      createdAt: data.created_at,
+      offerId: data.offer_id
+    } as Test;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('tests')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 };
 
@@ -285,5 +391,18 @@ export const financialService = {
       date: data.date,
       testId: data.test_id
     } as Transaction;
+  }
+};
+
+// AI Insights Service
+export const aiInsightsService = {
+  async generateInsight(test: Test): Promise<string> {
+    try {
+      const { generateTrafficInsight } = await import('./openaiService');
+      return await generateTrafficInsight(test);
+    } catch (error) {
+      console.error('Error generating AI insight:', error);
+      throw error;
+    }
   }
 };

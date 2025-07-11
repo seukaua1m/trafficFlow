@@ -123,12 +123,47 @@ function App() {
     }
   };
 
+  const handleUpdateOffer = async (offerId: string, offerData: Partial<Omit<Offer, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedOffer = await offersService.update(offerId, offerData);
+      setOffers(prev => prev.map(offer => offer.id === offerId ? updatedOffer : offer));
+    } catch (error) {
+      console.error('Error updating offer:', error);
+    }
+  };
+
   const handleDeleteOffer = async (offerId: string) => {
     try {
       await offersService.delete(offerId);
       setOffers(prev => prev.filter(offer => offer.id !== offerId));
     } catch (error) {
       console.error('Error deleting offer:', error);
+    }
+  };
+
+  const handleUpdateTest = async (testId: string, testData: Partial<Omit<Test, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedTest = await testsService.update(testId, testData);
+      setTests(prev => prev.map(test => test.id === testId ? updatedTest : test));
+      
+      // Reload financial data
+      const updatedFinancial = await financialService.get();
+      setFinancial(updatedFinancial);
+    } catch (error) {
+      console.error('Error updating test:', error);
+    }
+  };
+
+  const handleDeleteTest = async (testId: string) => {
+    try {
+      await testsService.delete(testId);
+      setTests(prev => prev.filter(test => test.id !== testId));
+      
+      // Reload financial data
+      const updatedFinancial = await financialService.get();
+      setFinancial(updatedFinancial);
+    } catch (error) {
+      console.error('Error deleting test:', error);
     }
   };
 
@@ -172,9 +207,9 @@ function App() {
       case 'dashboard':
         return <Dashboard tests={tests} metrics={metrics} />;
       case 'tests':
-        return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} />;
+        return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
       case 'offers':
-        return <OfferModule offers={offers} onAddOffer={handleAddOffer} onDeleteOffer={handleDeleteOffer} />;
+        return <OfferModule offers={offers} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
       case 'financial':
         return <FinancialModule financial={financial} onUpdateFinancial={handleUpdateFinancial} />;
       default:

@@ -11,6 +11,11 @@ export interface Test {
   cpa: number;
   roi: number;
   roas: number;
+  ctr: number;
+  conversionRate: number;
+  cpc: number;
+  impressions: number;
+  conversions: number;
   status: 'Escalar' | 'Pausar' | 'Encerrar';
   observations: string;
   createdAt: string;
@@ -59,4 +64,12 @@ export interface ChartData {
   roi: number;
   investment: number;
   revenue: number;
+}
+
+export interface AIInsight {
+  id: string;
+  testId: string;
+  insight: string;
+  recommendations: string[];
+  createdAt: string;
 }
