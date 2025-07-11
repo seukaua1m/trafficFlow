@@ -256,56 +256,20 @@ export const financialService = {
       // Create initial financial data
       const { data: newData, error: createError } = await supabase
         .from('financial_data')
-        .insert({
+        .upsert({
           user_id: user.id,
           initial_capital: 0,
           current_balance: 0,
           total_investment: 0,
           total_revenue: 0,
           net_profit: 0
+        }, {
+          onConflict: 'user_id'
         })
         .select()
         .single();
 
-      if (createError) {
-        // Check if it's a unique constraint violation (race condition)
-        if (createError.code === '23505') {
-          // Another process created the record, try to fetch it again
-          const { data: existingData, error: fetchError } = await supabase
-            .from('financial_data')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-          
-          if (fetchError) throw fetchError;
-          
-          // Get transactions for the existing record
-          const { data: transactions, error: transError } = await supabase
-            .from('transactions')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('date', { ascending: false });
-
-          if (transError) throw transError;
-
-          return {
-            initialCapital: existingData.initial_capital,
-            currentBalance: existingData.current_balance,
-            totalInvestment: existingData.total_investment,
-            totalRevenue: existingData.total_revenue,
-            netProfit: existingData.net_profit,
-            transactions: (transactions || []).map(t => ({
-              id: t.id,
-              type: t.type,
-              amount: t.amount,
-              description: t.description,
-              date: t.date,
-              testId: t.test_id
-            }))
-          } as FinancialData;
-        }
-        throw createError;
-      }
+      if (createError) throw createError;
       
       return {
         initialCapital: newData.initial_capital,
