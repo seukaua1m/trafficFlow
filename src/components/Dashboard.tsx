@@ -61,6 +61,12 @@ const Dashboard: React.FC<DashboardProps> = ({ tests, offers, metrics }) => {
         score
       };
     });
+
+    return offerStats.sort((a, b) => b.score - a.score).slice(0, 5);
+  };
+
+  const topOffers = getOfferRanking();
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -174,10 +180,6 @@ const Dashboard: React.FC<DashboardProps> = ({ tests, offers, metrics }) => {
                 <p className="text-gray-400 text-xs mt-1">Adicione ofertas e execute testes para ver o ranking</p>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-            </div>
           </div>
         </div>
       </div>
