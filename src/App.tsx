@@ -211,7 +211,7 @@ function App() {
 
     switch (activeModule) {
       case 'dashboard':
-        return <Dashboard tests={tests} metrics={metrics} />;
+        return <Dashboard tests={tests} offers={offers} metrics={metrics} />;
       case 'tests':
         return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
       case 'offers':
@@ -440,7 +440,7 @@ const MainApp: React.FC = () => {
 
     switch (activeModule) {
       case 'dashboard':
-        return <Dashboard tests={tests} metrics={metrics} />;
+        return <Dashboard tests={tests} offers={offers} metrics={metrics} />;
       case 'tests':
         return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
       case 'offers':
