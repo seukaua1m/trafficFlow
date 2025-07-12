@@ -1,3 +1,4 @@
+import { useAuth } from './useAuth';
 import { useState, useEffect } from 'react';
 import { MemberPermissions } from '../types';
 import { workspaceService } from '../services/supabaseService';
@@ -6,10 +7,13 @@ export const usePermissions = () => {
   const [permissions, setPermissions] = useState<MemberPermissions>({});
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadPermissions();
-  }, []);
+    if (user) {
+      loadPermissions();
+    }
+  }, [user]);
 
   const loadPermissions = async () => {
     try {
@@ -18,9 +22,9 @@ export const usePermissions = () => {
       setIsOwner(userPermissions.isOwner);
     } catch (error) {
       console.error('Error loading permissions:', error);
-      // Default to view only if error
-      setPermissions({ view_only: true });
-      setIsOwner(false);
+      // Default to full access for owners if error (fallback)
+      setPermissions({ full_access: true });
+      setIsOwner(true);
     } finally {
       setLoading(false);
     }

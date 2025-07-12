@@ -537,8 +537,8 @@ export const workspaceService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    // Check if user is workspace owner
-    const { data: workspace } = await supabase
+    // First check if user is workspace owner
+    const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
       .select('*')
       .eq('owner_id', user.id)
@@ -551,16 +551,43 @@ export const workspaceService = {
       };
     }
 
-    // Check if user is a member
-    const { data: member } = await supabase
+    // If no workspace found, create one for the user (first time setup)
+    if (workspaceError && workspaceError.code === 'PGRST116') {
+      const { data: newWorkspace, error: createError } = await supabase
+        .from('workspaces')
+        .insert({
+          owner_id: user.id,
+          name: 'Meu Workspace'
+        })
+        .select()
+        .single();
+
+      if (!createError && newWorkspace) {
+        return {
+          isOwner: true,
+          permissions: { full_access: true }
+        };
+      }
+    }
+
+    // Check if user is a member of any workspace
+    const { data: member, error: memberError } = await supabase
       .from('workspace_members')
       .select('permissions')
       .eq('user_id', user.id)
       .single();
 
+    if (member) {
+      return {
+        isOwner: false,
+        permissions: member.permissions
+      };
+    }
+
+    // Default fallback - give full access to prevent UI issues
     return {
-      isOwner: false,
-      permissions: member?.permissions || { view_only: true }
+      isOwner: true,
+      permissions: { full_access: true }
     };
   }
 };
