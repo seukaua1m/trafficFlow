@@ -17,11 +17,23 @@ import LoginForm from './components/Auth/LoginForm';
 
 type ActiveModule = 'dashboard' | 'tests' | 'financial' | 'offers' | 'members';
 
+interface MainAppProps {
+  tests: Test[];
+  offers: Offer[];
+  financial: FinancialData;
+  loading: boolean;
+  onAddTest: (testData: Omit<Test, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateTest: (testId: string, testData: Partial<Omit<Test, 'id' | 'createdAt'>>) => Promise<void>;
+  onDeleteTest: (testId: string) => Promise<void>;
+  onAddOffer: (offerData: Omit<Offer, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateOffer: (offerId: string, offerData: Partial<Omit<Offer, 'id' | 'createdAt'>>) => Promise<void>;
+  onDeleteOffer: (offerId: string) => Promise<void>;
+  onUpdateFinancial: (data: Partial<FinancialData>) => Promise<void>;
+}
+
 function App() {
   const { user, loading: authLoading } = useAuth();
   const { permissions, isOwner, loading: permissionsLoading, canEdit } = usePermissions();
-  const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tests, setTests] = useState<Test[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [financial, setFinancial] = useState<FinancialData>({
@@ -241,175 +253,42 @@ function App() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteAccept />} />
-      <Route path="/*" element={<MainApp />} />
+      <Route path="/*" element={
+        <MainApp 
+          tests={tests}
+          offers={offers}
+          financial={financial}
+          loading={loading}
+          onAddTest={handleAddTest}
+          onUpdateTest={handleUpdateTest}
+          onDeleteTest={handleDeleteTest}
+          onAddOffer={handleAddOffer}
+          onUpdateOffer={handleUpdateOffer}
+          onDeleteOffer={handleDeleteOffer}
+          onUpdateFinancial={handleUpdateFinancial}
+        />
+      } />
     </Routes>
   );
 }
 
-const MainApp: React.FC = () => {
+const MainApp: React.FC<MainAppProps> = ({
+  tests,
+  offers,
+  financial,
+  loading,
+  onAddTest,
+  onUpdateTest,
+  onDeleteTest,
+  onAddOffer,
+  onUpdateOffer,
+  onDeleteOffer,
+  onUpdateFinancial
+}) => {
   const { user } = useAuth();
   const { permissions, isOwner, loading: permissionsLoading, canEdit } = usePermissions();
   const [activeModule, setActiveModule] = useState<ActiveModule>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tests, setTests] = useState<Test[]>([]);
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [financial, setFinancial] = useState<FinancialData>({
-    initialCapital: 0,
-    currentBalance: 0,
-    totalInvestment: 0,
-    totalRevenue: 0,
-    netProfit: 0,
-    transactions: []
-  });
-  const [loading, setLoading] = useState(true);
-
-  // Load data when user is authenticated
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [testsData, offersData, financialData] = await Promise.all([
-        testsService.getAll(),
-        offersService.getAll(),
-        financialService.get()
-      ]);
-      
-      setTests(testsData);
-      setOffers(offersData);
-      setFinancial(financialData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Update financial data when tests change
-  useEffect(() => {
-    if (tests.length >= 0 && financial.initialCapital !== undefined) {
-      const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
-      const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
-      const netProfit = totalRevenue - totalInvestment;
-      
-      const updatedFinancial = {
-        ...financial,
-        totalInvestment,
-        totalRevenue,
-        netProfit,
-        currentBalance: financial.initialCapital + netProfit
-      };
-      
-      setFinancial(updatedFinancial);
-      
-      // Update in database
-      financialService.update(updatedFinancial).catch(console.error);
-    }
-  }, [tests, financial.initialCapital]);
-
-  const handleAddTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
-    try {
-      const newTest = await testsService.create(testData);
-      setTests(prev => [newTest, ...prev]);
-      
-      // Add investment transaction
-      const investmentTransaction: Omit<Transaction, 'id'> = {
-        type: 'investment',
-        amount: testData.investedAmount,
-        description: `Investimento - ${testData.productName}`,
-        date: new Date().toISOString(),
-        testId: newTest.id
-      };
-      
-      await financialService.addTransaction(investmentTransaction);
-      
-      // Add revenue transaction if there's return value
-      if (testData.returnValue > 0) {
-        const revenueTransaction: Omit<Transaction, 'id'> = {
-          type: 'revenue',
-          amount: testData.returnValue,
-          description: `Receita - ${testData.productName}`,
-          date: new Date().toISOString(),
-          testId: newTest.id
-        };
-        
-        await financialService.addTransaction(revenueTransaction);
-      }
-      
-      // Reload financial data
-      const updatedFinancial = await financialService.get();
-      setFinancial(updatedFinancial);
-    } catch (error) {
-      console.error('Error adding test:', error);
-    }
-  };
-
-  const handleAddOffer = async (offerData: Omit<Offer, 'id' | 'createdAt'>) => {
-    try {
-      const newOffer = await offersService.create(offerData);
-      setOffers(prev => [newOffer, ...prev]);
-    } catch (error) {
-      console.error('Error adding offer:', error);
-    }
-  };
-
-  const handleUpdateOffer = async (offerId: string, offerData: Partial<Omit<Offer, 'id' | 'createdAt'>>) => {
-    try {
-      const updatedOffer = await offersService.update(offerId, offerData);
-      setOffers(prev => prev.map(offer => offer.id === offerId ? updatedOffer : offer));
-    } catch (error) {
-      console.error('Error updating offer:', error);
-    }
-  };
-
-  const handleDeleteOffer = async (offerId: string) => {
-    try {
-      await offersService.delete(offerId);
-      setOffers(prev => prev.filter(offer => offer.id !== offerId));
-    } catch (error) {
-      console.error('Error deleting offer:', error);
-    }
-  };
-
-  const handleUpdateTest = async (testId: string, testData: Partial<Omit<Test, 'id' | 'createdAt'>>) => {
-    try {
-      const updatedTest = await testsService.update(testId, testData);
-      setTests(prev => prev.map(test => test.id === testId ? updatedTest : test));
-      
-      // Reload financial data
-      const updatedFinancial = await financialService.get();
-      setFinancial(updatedFinancial);
-    } catch (error) {
-      console.error('Error updating test:', error);
-    }
-  };
-
-  const handleDeleteTest = async (testId: string) => {
-    try {
-      await testsService.delete(testId);
-      setTests(prev => prev.filter(test => test.id !== testId));
-      
-      // Reload financial data
-      const updatedFinancial = await financialService.get();
-      setFinancial(updatedFinancial);
-    } catch (error) {
-      console.error('Error deleting test:', error);
-    }
-  };
-
-  const handleUpdateFinancial = async (data: Partial<FinancialData>) => {
-    try {
-      const updatedFinancial = { ...financial, ...data };
-      setFinancial(updatedFinancial);
-      await financialService.update(updatedFinancial);
-    } catch (error) {
-      console.error('Error updating financial data:', error);
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -442,11 +321,11 @@ const MainApp: React.FC = () => {
       case 'dashboard':
         return <Dashboard tests={tests} offers={offers} metrics={metrics} />;
       case 'tests':
-        return <TestModule tests={tests} offers={offers} onAddTest={handleAddTest} onUpdateTest={handleUpdateTest} onDeleteTest={handleDeleteTest} />;
+        return <TestModule tests={tests} offers={offers} onAddTest={onAddTest} onUpdateTest={onUpdateTest} onDeleteTest={onDeleteTest} />;
       case 'offers':
-        return <OfferModule offers={offers} tests={tests} onAddOffer={handleAddOffer} onUpdateOffer={handleUpdateOffer} onDeleteOffer={handleDeleteOffer} />;
+        return <OfferModule offers={offers} tests={tests} onAddOffer={onAddOffer} onUpdateOffer={onUpdateOffer} onDeleteOffer={onDeleteOffer} />;
       case 'financial':
-        return <FinancialModule financial={financial} onUpdateFinancial={handleUpdateFinancial} />;
+        return <FinancialModule financial={financial} onUpdateFinancial={onUpdateFinancial} />;
       case 'members':
         return <MemberManagement canManageMembers={canEdit('members')} />;
       default:
