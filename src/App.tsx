@@ -62,7 +62,7 @@ function App() {
 
   // Update financial data when tests change
   useEffect(() => {
-    if (tests.length > 0) {
+    if (tests.length >= 0) {
       const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
       const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
       const netProfit = totalRevenue - totalInvestment;
@@ -72,7 +72,7 @@ function App() {
         totalInvestment,
         totalRevenue,
         netProfit,
-        currentBalance: financial.initialCapital + totalRevenue - totalInvestment
+        currentBalance: financial.initialCapital + netProfit
       };
       
       setFinancial(updatedFinancial);
@@ -80,7 +80,7 @@ function App() {
       // Update in database
       financialService.update(updatedFinancial).catch(console.error);
     }
-  }, [tests]);
+  }, [tests, financial.initialCapital]);
 
   const handleAddTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
     try {
@@ -291,7 +291,7 @@ const MainApp: React.FC = () => {
 
   // Update financial data when tests change
   useEffect(() => {
-    if (tests.length > 0) {
+    if (tests.length >= 0) {
       const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
       const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
       const netProfit = totalRevenue - totalInvestment;
@@ -301,7 +301,7 @@ const MainApp: React.FC = () => {
         totalInvestment,
         totalRevenue,
         netProfit,
-        currentBalance: financial.initialCapital + totalRevenue - totalInvestment
+        currentBalance: financial.initialCapital + netProfit
       };
       
       setFinancial(updatedFinancial);
@@ -309,7 +309,7 @@ const MainApp: React.FC = () => {
       // Update in database
       financialService.update(updatedFinancial).catch(console.error);
     }
-  }, [tests]);
+  }, [tests, financial.initialCapital]);
 
   const handleAddTest = async (testData: Omit<Test, 'id' | 'createdAt'>) => {
     try {
