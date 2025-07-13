@@ -1,6 +1,6 @@
 /*    /index.html   200
 
-# Handle SPA routin
+# Handle SPA routing
 /invite/*  /index.html  200
 /login     /index.html  200
 /dashboard /index.html  200
