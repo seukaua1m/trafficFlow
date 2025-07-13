@@ -253,42 +253,49 @@ export const financialService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase
+    // First try to get existing financial data
+    let { data, error } = await supabase
       .from('financial_data')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
-    
-    if (!data) {
-      // Create initial financial data
+    // If no data exists, create it
+    if (error && error.code === 'PGRST116') {
       const { data: newData, error: createError } = await supabase
         .from('financial_data')
-        .upsert({
+        .insert({
           user_id: user.id,
           initial_capital: 0,
           current_balance: 0,
           total_investment: 0,
           total_revenue: 0,
           net_profit: 0
-        }, {
-          onConflict: 'user_id'
         })
         .select()
         .single();
 
-      if (createError) throw createError;
-      
-      return {
-        initialCapital: newData.initial_capital,
-        currentBalance: newData.current_balance,
-        totalInvestment: newData.total_investment,
-        totalRevenue: newData.total_revenue,
-        netProfit: newData.net_profit,
-        transactions: []
-      } as FinancialData;
+      if (createError) {
+        // If it's a duplicate key error, try to get the existing record
+        if (createError.code === '23505') {
+          const { data: existingData, error: getError } = await supabase
+            .from('financial_data')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (getError) throw getError;
+          data = existingData;
+        } else {
+          throw createError;
+        }
+      } else {
+        data = newData;
+      }
+    } else if (error) {
+      throw error;
     }
+    
 
     // Get transactions
     const { data: transactions, error: transError } = await supabase
@@ -329,7 +336,27 @@ export const financialService = {
 
     const { error } = await supabase
       .from('financial_data')
-      .upsert({
+      .update(updateData)
+      .eq('user_id', user.id);
+
+    if (error) {
+      // If update fails because record doesn't exist, create it
+      if (error.code === 'PGRST116') {
+        const { error: insertError } = await supabase
+          .from('financial_data')
+          .insert({
+            user_id: user.id,
+            ...updateData
+          });
+        
+        if (insertError && insertError.code !== '23505') {
+          throw insertError;
+        }
+      } else {
+        throw error;
+      }
+    }
+  },
         user_id: user.id,
         ...updateData
       });

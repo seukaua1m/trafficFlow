@@ -74,23 +74,33 @@ function App() {
 
   // Update financial data when tests change
   useEffect(() => {
-    if (tests.length >= 0 && financial.initialCapital !== undefined) {
+    if (tests.length >= 0 && financial && typeof financial.initialCapital === 'number') {
       const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
       const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
       const netProfit = totalRevenue - totalInvestment;
       
-      const updatedFinancial = {
-        ...financial,
-        totalInvestment,
-        totalRevenue,
-        netProfit,
-        currentBalance: financial.initialCapital + netProfit
-      };
-      
-      setFinancial(updatedFinancial);
-      
-      // Update in database
-      financialService.update(updatedFinancial).catch(console.error);
+      // Only update if values have actually changed
+      if (financial.totalInvestment !== totalInvestment || 
+          financial.totalRevenue !== totalRevenue || 
+          financial.netProfit !== netProfit) {
+        
+        const updatedFinancial = {
+          ...financial,
+          totalInvestment,
+          totalRevenue,
+          netProfit,
+          currentBalance: financial.initialCapital + netProfit
+        };
+        
+        setFinancial(updatedFinancial);
+        
+        // Update in database with debounce
+        const timeoutId = setTimeout(() => {
+          financialService.update(updatedFinancial).catch(console.error);
+        }, 500);
+        
+        return () => clearTimeout(timeoutId);
+      }
     }
   }, [tests, financial.initialCapital]);
 
@@ -188,7 +198,15 @@ function App() {
     try {
       const updatedFinancial = { ...financial, ...data };
       setFinancial(updatedFinancial);
-      await financialService.update(updatedFinancial);
+      
+      // Debounce the database update
+      setTimeout(async () => {
+        try {
+          await financialService.update(updatedFinancial);
+        } catch (error) {
+          console.error('Error updating financial data:', error);
+        }
+      }, 300);
     } catch (error) {
       console.error('Error updating financial data:', error);
     }
@@ -239,8 +257,12 @@ function App() {
 
   if (authLoading || permissionsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">TrafficFlow Manager</h2>
+          <p className="text-gray-500">Carregando aplicação...</p>
+        </div>
       </div>
     );
   }
@@ -336,8 +358,12 @@ const MainApp: React.FC<MainAppProps> = ({
 
   if (permissionsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">TrafficFlow Manager</h2>
+          <p className="text-gray-500">Configurando permissões...</p>
+        </div>
       </div>
     );
   }
