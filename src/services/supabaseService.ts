@@ -568,7 +568,7 @@ export const workspaceService = {
           permissions: { full_access: true }
         };
       }
-    
+    }
 
     // Check if user is a member of any workspace
     const { data: member, error: memberError } = await supabase
@@ -588,6 +588,6 @@ export const workspaceService = {
     return {
       isOwner: true,
       permissions: { full_access: true }
-    };
+    }
   }
 };
