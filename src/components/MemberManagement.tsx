@@ -123,7 +123,7 @@ const MemberManagement: React.FC<MemberManagementProps> = ({ canManageMembers })
   const copyInviteLink = (token: string) => {
     const inviteUrl = `${window.location.origin}/invite/${token}`;
     navigator.clipboard.writeText(inviteUrl);
-    alert('Link de convite copiado para a área de transferência!');
+    alert(`Link de convite copiado!\n\n${inviteUrl}\n\nEste link expira em 7 dias e é de uso único.`);
   };
 
   if (loading) {

@@ -433,6 +433,32 @@ export const workspaceService = {
 
     const workspace = await this.getCurrentWorkspace();
 
+    // Verificar se o email já foi convidado
+    const { data: existingInvite } = await supabase
+      .from('member_invitations')
+      .select('id')
+      .eq('workspace_id', workspace.id)
+      .eq('email', email)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (existingInvite) {
+      throw new Error('Este email já possui um convite pendente');
+    }
+
+    // Verificar se o email já é membro
+    const { data: existingMember } = await supabase
+      .from('workspace_members')
+      .select('id')
+      .eq('workspace_id', workspace.id)
+      .eq('email', email)
+      .single();
+
+    if (existingMember) {
+      throw new Error('Este email já é membro do workspace');
+    }
+
     const { data, error } = await supabase
       .from('member_invitations')
       .insert({
@@ -524,9 +550,21 @@ export const workspaceService = {
     if (error) throw error;
   },
 
-  async acceptInvitation(token: string) {
-    const { data, error } = await supabase.rpc('accept_invitation', {
+  async validateInvitation(token: string) {
+    const { data, error } = await supabase.rpc('validate_invitation_token', {
       invitation_token: token
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async acceptInvitation(token: string, password: string) {
+    const { data, error } = await supabase.rpc('accept_invitation_secure', {
+      invitation_token: token,
+      user_password: password,
+      client_ip: null,
+      client_user_agent: navigator.userAgent
     });
 
     if (error) throw error;

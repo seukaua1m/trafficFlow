@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, Target } from 'lucide-react';
 import { signIn, signUp } from '../../lib/supabase';
 
@@ -7,6 +8,7 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -14,6 +16,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     password: ''
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  React.useEffect(() => {
+    const message = searchParams.get('message');
+    if (message === 'account_created') {
+      setSuccessMessage('Conta criada com sucesso! Faça login para acessar o workspace.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +75,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-600 text-sm">{successMessage}</p>
             </div>
           )}
 

@@ -12,7 +12,7 @@ import TestModule from './components/TestModule';
 import FinancialModule from './components/FinancialModule';
 import OfferModule from './components/OfferModule';
 import MemberManagement from './components/MemberManagement';
-import InviteAccept from './components/InviteAccept';
+import InviteOnboarding from './components/InviteOnboarding';
 import LoginForm from './components/Auth/LoginForm';
 
 type ActiveModule = 'dashboard' | 'tests' | 'financial' | 'offers' | 'members';
@@ -252,7 +252,8 @@ function App() {
   // Handle invite routes
   return (
     <Routes>
-      <Route path="/invite/:token" element={<InviteAccept />} />
+      <Route path="/invite/:token" element={<InviteOnboarding />} />
+      <Route path="/login" element={<LoginForm onSuccess={() => {}} />} />
       <Route path="/*" element={
         <MainApp 
           tests={tests}
