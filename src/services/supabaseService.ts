@@ -589,5 +589,5 @@ export const workspaceService = {
       isOwner: true,
       permissions: { full_access: true }
     };
-  };
+  }
 }
