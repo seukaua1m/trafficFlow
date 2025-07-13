@@ -430,8 +430,8 @@ const MainApp: React.FC<MainAppProps> = ({
               <span className="text-sm font-medium">Sair</span>
             </button>
             <div className="text-center text-sm text-gray-500 mt-4">
-              <p>Versão 1.0.0</p>
-              <p className="mt-1">© 2024 TrafficFlow</p>
+              <p>Versão 1.1.0</p>
+              <p className="mt-1">© 2025 TrafficFlow</p>
             </div>
           </div>
         </div>
