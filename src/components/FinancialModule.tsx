@@ -26,9 +26,10 @@ const FinancialModule: React.FC<FinancialModuleProps> = ({ financial, onUpdateFi
     e.preventDefault();
     const amount = parseCurrencyInput(capitalAmount);
     if (amount > 0) {
+      const netProfit = financial.totalRevenue - financial.totalInvestment;
       onUpdateFinancial({
         initialCapital: amount,
-        currentBalance: amount + financial.totalRevenue - financial.totalInvestment
+        currentBalance: amount + netProfit
       });
       setShowCapitalForm(false);
       setCapitalAmount('');

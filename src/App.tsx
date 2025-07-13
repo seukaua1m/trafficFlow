@@ -62,7 +62,7 @@ function App() {
 
   // Update financial data when tests change
   useEffect(() => {
-    if (tests.length >= 0) {
+    if (tests.length >= 0 && financial.initialCapital !== undefined) {
       const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
       const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
       const netProfit = totalRevenue - totalInvestment;
@@ -291,7 +291,7 @@ const MainApp: React.FC = () => {
 
   // Update financial data when tests change
   useEffect(() => {
-    if (tests.length >= 0) {
+    if (tests.length >= 0 && financial.initialCapital !== undefined) {
       const totalInvestment = tests.reduce((sum, test) => sum + test.investedAmount, 0);
       const totalRevenue = tests.reduce((sum, test) => sum + test.returnValue, 0);
       const netProfit = totalRevenue - totalInvestment;
