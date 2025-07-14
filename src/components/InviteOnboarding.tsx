@@ -34,44 +34,65 @@ const InviteOnboarding: React.FC = () => {
   useEffect(() => {
     if (token) {
       validateInvitation();
+    } else {
+      setStep('error');
+      setInvitationData({
+        valid: false,
+        error: 'no_token',
+        message: 'Token de convite não encontrado.'
+      });
     }
   }, [token]);
 
   const validateInvitation = async () => {
     try {
       setLoading(true);
+      console.log('Validating invitation with token:', token);
       
-      // First, get the invitation data directly from the table
+      // Buscar convite na tabela
       const { data: invitation, error } = await supabase
         .from('member_invitations')
         .select('*')
         .eq('token', token)
         .is('accepted_at', null)
-        .gt('expires_at', new Date().toISOString())
         .single();
 
-      if (error) throw error;
+      console.log('Invitation query result:', { invitation, error });
 
-      if (invitation) {
-        setInvitationData({
-          valid: true,
-          invitation_id: invitation.id,
-          email: invitation.email,
-          workspace_id: invitation.workspace_id,
-          permissions: invitation.permissions,
-          expires_at: invitation.expires_at
-        });
-        setStep('create-password');
-      } else {
-        throw new Error('Invalid or expired invitation');
+      if (error) {
+        console.error('Error fetching invitation:', error);
+        throw new Error('Convite não encontrado ou já foi usado');
       }
+
+      if (!invitation) {
+        throw new Error('Convite não encontrado');
+      }
+
+      // Verificar se não expirou
+      const now = new Date();
+      const expiresAt = new Date(invitation.expires_at);
       
-    } catch (error) {
+      if (now > expiresAt) {
+        throw new Error('Este convite expirou');
+      }
+
+      console.log('Invitation is valid, setting data');
+      setInvitationData({
+        valid: true,
+        invitation_id: invitation.id,
+        email: invitation.email,
+        workspace_id: invitation.workspace_id,
+        permissions: invitation.permissions,
+        expires_at: invitation.expires_at
+      });
+      setStep('create-password');
+      
+    } catch (error: any) {
       console.error('Error validating invitation:', error);
       setInvitationData({
         valid: false,
         error: 'validation_failed',
-        message: 'Erro ao validar convite. Tente novamente.'
+        message: error.message || 'Erro ao validar convite. Verifique se o link está correto.'
       });
       setStep('error');
     } finally {
@@ -82,24 +103,8 @@ const InviteOnboarding: React.FC = () => {
   const validatePassword = (password: string): string[] => {
     const errors: string[] = [];
     
-    if (password.length < 8) {
-      errors.push('A senha deve ter pelo menos 8 caracteres');
-    }
-    
-    if (!/[A-Z]/.test(password)) {
-      errors.push('A senha deve conter pelo menos uma letra maiúscula');
-    }
-    
-    if (!/[a-z]/.test(password)) {
-      errors.push('A senha deve conter pelo menos uma letra minúscula');
-    }
-    
-    if (!/[0-9]/.test(password)) {
-      errors.push('A senha deve conter pelo menos um número');
-    }
-    
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      errors.push('A senha deve conter pelo menos um caractere especial');
+    if (password.length < 6) {
+      errors.push('A senha deve ter pelo menos 6 caracteres');
     }
     
     return errors;
@@ -118,7 +123,10 @@ const InviteOnboarding: React.FC = () => {
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!invitationData?.email) return;
+    if (!invitationData?.email || !invitationData?.workspace_id) {
+      setErrors(['Dados do convite inválidos']);
+      return;
+    }
     
     // Validar senhas
     const passwordErrors = validatePassword(formData.password);
@@ -136,62 +144,81 @@ const InviteOnboarding: React.FC = () => {
     setErrors([]);
     
     try {
+      console.log('Creating account for:', invitationData.email);
+      
       // Criar usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: invitationData.email,
         password: formData.password,
         options: {
-          data: {
-            invitation_token: token,
-            workspace_id: invitationData.workspace_id
-          }
+          emailRedirectTo: undefined // Desabilitar confirmação por email
         }
       });
 
-      if (authError) throw authError;
+      console.log('Auth signup result:', { authData, authError });
 
-      if (authData.user) {
-        // Aceitar convite após criação do usuário
-        // Add user to workspace members
-        const { error: memberError } = await supabase
-          .from('workspace_members')
-          .insert({
-            workspace_id: invitationData.workspace_id,
-            user_id: authData.user.id,
-            email: invitationData.email,
-            permissions: invitationData.permissions,
-            invited_by: null // Will be set by the database
-          });
-
-        if (memberError) {
-          console.error('Error adding to workspace:', memberError);
+      if (authError) {
+        if (authError.message.includes('already_registered') || authError.message.includes('already been registered')) {
+          throw new Error('Este email já está registrado. Tente fazer login.');
         }
-
-        // Mark invitation as accepted
-        await supabase
-          .from('member_invitations')
-          .update({ 
-            accepted_at: new Date().toISOString(),
-            used_at: new Date().toISOString()
-          })
-          .eq('token', token);
-
-        setStep('success');
-        
-        // Redirecionar para login após 3 segundos
-        setTimeout(() => {
-          navigate('/login?message=account_created');
-        }, 3000);
+        throw authError;
       }
+
+      if (!authData.user) {
+        throw new Error('Erro ao criar usuário');
+      }
+
+      console.log('User created, adding to workspace');
+
+      // Adicionar usuário ao workspace
+      const { error: memberError } = await supabase
+        .from('workspace_members')
+        .insert({
+          workspace_id: invitationData.workspace_id,
+          user_id: authData.user.id,
+          email: invitationData.email,
+          permissions: invitationData.permissions,
+          role: 'member'
+        });
+
+      if (memberError) {
+        console.error('Error adding to workspace:', memberError);
+        // Não falhar aqui, pois o usuário já foi criado
+      }
+
+      console.log('Marking invitation as accepted');
+
+      // Marcar convite como aceito
+      const { error: updateError } = await supabase
+        .from('member_invitations')
+        .update({ 
+          accepted_at: new Date().toISOString(),
+          used_at: new Date().toISOString()
+        })
+        .eq('token', token);
+
+      if (updateError) {
+        console.error('Error updating invitation:', updateError);
+        // Não falhar aqui, pois o usuário já foi criado
+      }
+
+      console.log('Account creation successful');
+      setStep('success');
+      
+      // Redirecionar para login após 3 segundos
+      setTimeout(() => {
+        navigate('/login?message=account_created');
+      }, 3000);
+      
     } catch (error: any) {
       console.error('Error creating account:', error);
       
-      if (error.message?.includes('already_registered')) {
+      if (error.message?.includes('already_registered') || error.message?.includes('already been registered')) {
         setErrors(['Este email já está registrado. Tente fazer login.']);
       } else if (error.message?.includes('invalid_email')) {
         setErrors(['Email inválido.']);
       } else {
-        setErrors(['Erro ao criar conta. Tente novamente.']);
+        setErrors([error.message || 'Erro ao criar conta. Tente novamente.']);
       }
     } finally {
       setLoading(false);
@@ -200,13 +227,11 @@ const InviteOnboarding: React.FC = () => {
 
   const getPasswordStrength = (password: string) => {
     const errors = validatePassword(password);
-    const strength = Math.max(0, 5 - errors.length);
+    const strength = Math.max(0, 2 - errors.length);
     
-    if (strength === 0) return { label: 'Muito fraca', color: 'bg-red-500', width: '20%' };
-    if (strength === 1) return { label: 'Fraca', color: 'bg-red-400', width: '40%' };
-    if (strength === 2) return { label: 'Regular', color: 'bg-yellow-500', width: '60%' };
-    if (strength === 3) return { label: 'Boa', color: 'bg-blue-500', width: '80%' };
-    return { label: 'Muito forte', color: 'bg-green-500', width: '100%' };
+    if (strength === 0) return { label: 'Fraca', color: 'bg-red-500', width: '33%' };
+    if (strength === 1) return { label: 'Boa', color: 'bg-yellow-500', width: '66%' };
+    return { label: 'Forte', color: 'bg-green-500', width: '100%' };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
@@ -220,6 +245,11 @@ const InviteOnboarding: React.FC = () => {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Validando Convite</h1>
           <p className="text-gray-600">Verificando a validade do seu convite...</p>
+          {loading && (
+            <div className="mt-4">
+              <div className="text-sm text-gray-500">Token: {token?.substring(0, 10)}...</div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -243,6 +273,13 @@ const InviteOnboarding: React.FC = () => {
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               Ir para Login
+            </button>
+            
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              Tentar Novamente
             </button>
             
             <p className="text-sm text-gray-500">
@@ -325,6 +362,7 @@ const InviteOnboarding: React.FC = () => {
                 value={formData.password}
                 onChange={handlePasswordChange}
                 required
+                minLength={6}
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Digite sua senha"
               />
@@ -342,9 +380,8 @@ const InviteOnboarding: React.FC = () => {
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600">Força da senha:</span>
                   <span className={`font-medium ${
-                    passwordStrength.label === 'Muito forte' ? 'text-green-600' :
-                    passwordStrength.label === 'Boa' ? 'text-blue-600' :
-                    passwordStrength.label === 'Regular' ? 'text-yellow-600' :
+                    passwordStrength.label === 'Forte' ? 'text-green-600' :
+                    passwordStrength.label === 'Boa' ? 'text-yellow-600' :
                     'text-red-600'
                   }`}>
                     {passwordStrength.label}
@@ -404,11 +441,8 @@ const InviteOnboarding: React.FC = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="text-blue-800 font-medium mb-2">Requisitos de Segurança:</h4>
             <ul className="text-blue-700 text-sm space-y-1">
-              <li>• Mínimo de 8 caracteres</li>
-              <li>• Pelo menos uma letra maiúscula</li>
-              <li>• Pelo menos uma letra minúscula</li>
-              <li>• Pelo menos um número</li>
-              <li>• Pelo menos um caractere especial</li>
+              <li>• Mínimo de 6 caracteres</li>
+              <li>• Use uma senha segura</li>
             </ul>
           </div>
 
