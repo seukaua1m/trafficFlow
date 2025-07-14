@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { BarChart3, Target, DollarSign, Menu, X, Package, LogOut, Users } from 'lucide-react';
 import { Test, FinancialData, Transaction, Offer } from './types';
 import { calculateMetrics } from './utils/calculations';
@@ -274,23 +274,28 @@ function App() {
   // Handle invite routes
   return (
     <Routes>
+      <Route path="/" element={
+        user ? (
+          <MainApp 
+            tests={tests}
+            offers={offers}
+            financial={financial}
+            loading={loading}
+            onAddTest={handleAddTest}
+            onUpdateTest={handleUpdateTest}
+            onDeleteTest={handleDeleteTest}
+            onAddOffer={handleAddOffer}
+            onUpdateOffer={handleUpdateOffer}
+            onDeleteOffer={handleDeleteOffer}
+            onUpdateFinancial={handleUpdateFinancial}
+          />
+        ) : (
+          <LoginForm onSuccess={() => {}} />
+        )
+      } />
       <Route path="/invite/:token" element={<InviteOnboarding />} />
       <Route path="/login" element={<LoginForm onSuccess={() => {}} />} />
-      <Route path="/*" element={
-        <MainApp 
-          tests={tests}
-          offers={offers}
-          financial={financial}
-          loading={loading}
-          onAddTest={handleAddTest}
-          onUpdateTest={handleUpdateTest}
-          onDeleteTest={handleDeleteTest}
-          onAddOffer={handleAddOffer}
-          onUpdateOffer={handleUpdateOffer}
-          onDeleteOffer={handleDeleteOffer}
-          onUpdateFinancial={handleUpdateFinancial}
-        />
-      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

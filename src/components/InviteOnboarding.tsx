@@ -41,19 +41,31 @@ const InviteOnboarding: React.FC = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.rpc('validate_invitation_token', {
-        invitation_token: token
-      });
+      // First, get the invitation data directly from the table
+      const { data: invitation, error } = await supabase
+        .from('member_invitations')
+        .select('*')
+        .eq('token', token)
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
       if (error) throw error;
 
-      setInvitationData(data);
-      
-      if (data.valid) {
+      if (invitation) {
+        setInvitationData({
+          valid: true,
+          invitation_id: invitation.id,
+          email: invitation.email,
+          workspace_id: invitation.workspace_id,
+          permissions: invitation.permissions,
+          expires_at: invitation.expires_at
+        });
         setStep('create-password');
       } else {
-        setStep('error');
+        throw new Error('Invalid or expired invitation');
       }
+      
     } catch (error) {
       console.error('Error validating invitation:', error);
       setInvitationData({
@@ -140,22 +152,29 @@ const InviteOnboarding: React.FC = () => {
 
       if (authData.user) {
         // Aceitar convite após criação do usuário
-        const clientInfo = {
-          ip_address: null, // Será capturado pelo servidor se necessário
-          user_agent: navigator.userAgent
-        };
+        // Add user to workspace members
+        const { error: memberError } = await supabase
+          .from('workspace_members')
+          .insert({
+            workspace_id: invitationData.workspace_id,
+            user_id: authData.user.id,
+            email: invitationData.email,
+            permissions: invitationData.permissions,
+            invited_by: null // Will be set by the database
+          });
 
-        const { data: acceptData, error: acceptError } = await supabase.rpc('accept_invitation_secure', {
-          invitation_token: token,
-          user_password: formData.password,
-          client_ip: null,
-          client_user_agent: navigator.userAgent
-        });
-
-        if (acceptError) {
-          console.error('Error accepting invitation:', acceptError);
-          // Mesmo com erro na aceitação, o usuário foi criado
+        if (memberError) {
+          console.error('Error adding to workspace:', memberError);
         }
+
+        // Mark invitation as accepted
+        await supabase
+          .from('member_invitations')
+          .update({ 
+            accepted_at: new Date().toISOString(),
+            used_at: new Date().toISOString()
+          })
+          .eq('token', token);
 
         setStep('success');
         
